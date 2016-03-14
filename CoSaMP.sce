@@ -68,11 +68,20 @@ function x_row=row(x)
 endfunction
 
 //function to prune
-function y_pruned=prune(y,k)
-    y_pruned=gsort(y,'g','i');
-    y_pruned=y_pruned(1:k);
-endfunction
-
+//same as make_sparse(x,k) function
+//function y_pruned=prune(y,k)
+//    y=row(y); //making y a row vector
+//    [y_pruned_temp index]=gsort(y,'g','d'); //sorting in descending order
+//    for i=1:size(y,1)
+//        for j=1:k
+//            if i==index(j) then
+//                
+//            end
+//        end
+//    end
+//    y_pruned=y_pruned(1:k);
+//endfunction
+//
 //function to find support 
 function supp=find_support(x,k)
     [x_temp,index]=gsort(row(x),'g','d');
@@ -93,11 +102,12 @@ function supp=support(x)
             break;
         end
     end
-    supp_temp=gsort(supp,'g','i'); //sorting the indices
+    supp_temp=gsort(supp,'g','d'); //sorting the indices
     if supp_temp(1)==0 then
         disp('Warning:support set is empty!')
     end
-    supp=row(supp);
+    supp=row(gsort(supp,'g','i'));
+    //sort so as not to change order of elments
 endfunction
 
 ////to get phi_T
@@ -123,12 +133,14 @@ function phi_T=return_phi_T(phi,T)
     row_T=size(T,1); //no fo rows in T
     //[row_phi,col_phi]=size(phi);
     //phi_T=zeros(row_phi,col_phi); //initialiazing phi_T
-    [T_sort]=(gsort(T,'g','i')); //sort in ascending order
+    //[T_sort]=(gsort(T,'g','i')); //sort in ascending order->no need
+    //as support set will be sorted always in our case
     for i=1:row_T
-        phi_T(:,i)=phi(:,T_sort(i));
+        phi_T(:,i)=phi(:,T(i));
     end
    // phi_T=phi_T_temp;
 endfunction
+
 //T=[1 3 4]
 //temp=return_phi_T(phi,T)
 
@@ -141,11 +153,17 @@ function merged_supp=merge_support(supp1,supp2)
     elseif supp2(1)==0 then
         merged_supp_temp=[row(supp1)];
     else
-        disp('Merged support is empty!')
+        disp('Merged support set is empty!')
     end
     
     merged_supp=row(unique(merged_supp_temp));
 endfunction
+
+//x=[1 0 4 5 0]
+//supp=support(x)
+//y=[2 0 4 0 0]
+//supp2=support(y)
+//supp_m=merge_support(supp,supp2)
 
 //estimating
 function x=estimate(phi,y,T)
