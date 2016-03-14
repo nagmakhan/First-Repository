@@ -11,7 +11,7 @@ n=64; //size of data
 k=8; //sparsity
 q=2; //no of clusters
 //m=3*k; //no of measurements
-m=3*k; //no of measurements
+m=5*k; //no of measurements
 sigma=0.01; //measurement noise
 tau=2; //no of neighbours
 k_min=1;
@@ -19,7 +19,7 @@ k_max=n/3; //range of k
 steps=50; //steps to increase k
 del_k=round((k_max-k_min)/steps); //step size for increasing k
 //epsilon=(10^-1)*zeros(n,1); //tolerance level
-epsilon=(10^-1);
+epsilon=1;
 
 //Generating phi
 phi=rand(m,n,'normal');
@@ -50,7 +50,7 @@ for i=1:size(locations,1)
     end
 end
 
-x_sorted=gsort(x,'g','d');
+//x_sorted=gsort(x,'g','d');
 //Generating measurement noise
 v=rand(m,1,'normal')*sigma; //gaussian noise having zero mean and sd=sigma
 
@@ -84,7 +84,7 @@ endfunction
 //
 //function to find support 
 function supp=find_support(x,k)
-    [x_temp,index]=gsort(row(x),'g','d');
+    [x_temp,index]=gsort(row(abs(x)),'g','d');
     supp=index(1:k); //selecting k largest elements
     //supp=gsort(supp,'g','i'); //sorting the indices
     supp=row(supp);
@@ -94,7 +94,7 @@ endfunction
 function supp=support(x)
     x=row(x);
     supp=zeros(size(x,1));
-    [x_temp,index]=gsort(x,'g','d');
+    [x_temp,index]=gsort(abs(x),'g','d');
     for i=1:size(x_temp,1)
         if x_temp(i)~=0 then
             supp(i)=index(i);
@@ -167,22 +167,38 @@ endfunction
 
 //estimating
 function x=estimate(phi,y,T)
+    T=row(T);
+    phi_col=size(phi,2);
     phi_T=return_phi_T(phi,T);
-    x=inv(phi_T'*phi_T)*phi_T'*y;
+    x_temp=inv(phi_T'*phi_T)*phi_T'*y;
+    x=zeros(phi_col,1);
+    //disp(size(T))
+    //disp(size(x))
+    //placing the non-zero values of x in proper places
+    k=1;
+    for i=1:phi_col
+        for j=1:size(T,1)
+            if i==T(j)  then
+                x(i)=x_temp(k);
+                k=k+1;
+                break;
+            end
+        end
+    end
 endfunction
 
 //function to make a vector k-sparse
 function x_sparse=make_sparse(x,k)
     x=row(x); //make x a row vector
     row_x=size(x,1); //no of rows in x
-    [x_temp,index]=gsort(x,'g','d'); //sorting x in descending order
+    [x_temp,index]=gsort(abs(x),'g','d'); //sorting x in descending order
     index=index(1:k);
     x_sparse=zeros(row_x,1);
     for i=1:row_x
         for j=1:k
             if(i==index(j))
                 x_sparse(i)=x(i);
-                break
+                break;
             end
         end
     end
@@ -207,21 +223,26 @@ function x_hat=CoSaMP(phi,y,k)
         
         //merging support sets
         x_temp=phi'*y_r;
+        //disp(x_temp)
         supp_xtemp=find_support(x_temp,2*k);
+        //disp(supp_xtemp)
         supp_x_hat=support(x_hat_vec);
+        //disp(x_hat_vec)
+        //disp(supp_x_hat)
         merged_supp=merge_support(supp_xtemp,supp_x_hat);
-        
+        //disp(merged_supp)
         //estimating x by LS
         b=estimate(phi,y,merged_supp); //estimate of x
-        //disp(size(b))
-        b=[b;zeros(phi_col-size(b,1),1)]; //making b the size of x
+        //disp(merged_supp)
+        //disp(b)
+        //b=[b;zeros(phi_col-size(b,1),1)]; //making b the size of x
         //prune to obtain next estmate
         x_hat_vec=make_sparse(b);
 //        disp(i)
 //        disp(size(b))
-//        disp(size(x_hat_vec))
+        //disp(x_hat_vec)
 //        disp(size(x_hat_temp))
-        [x_hat_temp2,index]=gsort(row(b),'g','d');
+        //[x_hat_temp2,index]=gsort(row(b),'g','d');
 //        x_hat_vec=row(x_hat_temp2(1:k));
         x_hat_temp=[x_hat_temp x_hat_vec];
         
@@ -230,17 +251,18 @@ function x_hat=CoSaMP(phi,y,k)
         y_r=y-(phi*x_hat_vec);
         
         //check halting criterion
-        difference=max(x_hat_temp(:,i)-x_sorted);
-        //disp(difference)
-        disp(i)
-        if i>500 then
+        difference=sum(abs(x_hat_temp(:,i)-x));
+        disp(difference)
+        //disp(i)
+        if difference<epsilon | i>1000 then
             flag=0;
         end
 //        if abs(difference)<=epsilon then
 //            flag=0;
 //        end
     end
-    x_hat=x_hat_temp(:,i);
+    //x_hat=x_hat_temp(:,i);
+    x_hat=x_hat_temp;
     //disp(size(x_hat))
     //temp=zeros(n-k,1);
     //disp(size(temp))
@@ -248,5 +270,5 @@ function x_hat=CoSaMP(phi,y,k)
 endfunction
 
 x_hat=CoSaMP(phi,y,k);
-plot(x_hat,'r')
+plot(x_hat(:,$),'r')
 plot(x)
