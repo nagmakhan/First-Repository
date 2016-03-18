@@ -12,8 +12,8 @@ k=8; //sparsity
 //k=3;
 q=2; //no of clusters
 //m=3*k; //no of measurements
-factor=ceil(log(n/k));
-m=(factor)*k; //no of measurements
+fac=ceil(log(n/k));
+m=(fac+2)*k; //no of measurements
 sigma=0.01; //measurement noise
 tau=2; //no of neighbours
 k_min=1;
@@ -21,7 +21,7 @@ k_max=n/3; //range of k
 steps=50; //steps to increase k
 del_k=round((k_max-k_min)/steps); //step size for increasing k
 //epsilon=(10^-1)*zeros(n,1); //tolerance level
-epsilon=0.01;
+epsilon=0.005;
 
 //Generating phi
 phi=rand(m,n,'normal');
@@ -37,25 +37,29 @@ for i=1:m
 end
 
 //Generating measurements
-x=zeros(n,1); //initializing the 1D data
-x(2)=1
-x(34)=4;
-x(50)=-1;
-x(4)=5;
-x(21)=1
-x(30)=4;
-x(25)=-1;
-x(40)=5;
+x_meas=zeros(n,1); //initializing the 1D data
+x_meas(2:9)=1;
+x_meas(50:58)=1;
+//x(2)=1
+//x(34)=4;
+//x(50)=-1;
+//x(4)=5;
+//x(21)=1;
+//x(30)=4;
+//x(25)=-1;
+//x(40)=5;
 //loc_count=k/q; //no of locations where we place clusters
+//disp(loc_count)
 //locations=tau+1+pmodulo(ceil(rand(loc_count,1)*1000),(n-2*tau)); //generating locations to cluster
+//disp(locations)
 ////Populating chosen locations with +-1 generated randomly
 //for i=1:size(locations,1)
 //    loc_temp=locations(i);
 //    for j=(loc_temp-tau):(loc_temp+tau)
 //        if rand(1)>0.5 then
-//            x(j)=1;
+//            x_meas(j)=1;
 //        else
-//            x(j)=-1;
+//            x_meas(j)=-1;
 //        end
 //    end
 //end
@@ -65,7 +69,7 @@ x(40)=5;
 v=rand(m,1,'normal')*sigma; //gaussian noise having zero mean and sd=sigma
 //v=0;
 //Genrating measurements
-y=(phi*x)+v;
+y=(phi*x_meas)+v;
 
 //plot(phi*x);
 //plot(y,'r');
@@ -157,18 +161,19 @@ function x_hat=CoSaMP(phi,y,k)
         y_r=y-(phi*x_hat_vec);
         //check halting criterion
         difference=(abs(x_hat_temp(:,i)-x_hat_temp(:,i-1)));
-        //difference=abs(x_hat_temp(:,i)-x);
+        //difference=abs(x_hat_temp(:,i)-x_meas);
         //disp(difference)
         disp(i)
         if difference<epsilon then
             flag=0;
         end
+        x_hat=x_hat_temp(:,i);
     end
-    x_hat=x_hat_temp(:,$);
+    x_hat=x_hat_temp(:,i);
 endfunction
 
 x_hat=CoSaMP(phi,y,k);
 //plot(x_hat(:,$),'r')
 //plot(x)
 n_vec=1:n;
-plot2d3(n_vec,[x x_hat])
+plot2d3(n_vec,[x_meas x_hat])
