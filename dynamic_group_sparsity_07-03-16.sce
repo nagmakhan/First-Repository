@@ -11,8 +11,11 @@ k=64; //sparsity
 //k=3;
 q=4; //no of clusters
 //m=6*k; //no of measurements
-fac=ceil(log(n/k));
-m=(fac)*k; //no of measurements
+//fac=ceil(log(n/k)); //for CoSaMP
+fac=q*ceil(log(n/q)); //for DGS
+//m=(fac)*k; //no of measurements for CoSaMP
+//m=k+fac;
+m=3*k;
 sigma=0.01; //measurement noise
 tau=2; //no of neighbours
 //tau=0;
@@ -24,7 +27,7 @@ w_init=0.5; //to initialise the weights
 w=w_init*ones(n,tau); //weights
 N_x=zeros(n,tau);//neighbours value
 //epsilon=(10^-1)*zeros(n,1); //tolerance level
-epsilon=0.01;
+epsilon=0.004;
 
 //Generating phi
 phi=rand(m,n,'normal');
@@ -68,6 +71,21 @@ for i=1:size(locations,1)
             x_meas(j)=1;
         else
             x_meas(j)=-1;
+        end
+    end
+end
+
+//find neighbours
+for i=1:n
+    //disp(i)
+    count=1;
+    for j=-(tau/2):(tau/2)
+        if j~=0 then
+            //disp(j)
+            if  (i+j)>0 & (i+j)<(n) then
+            N_x(i,count)=x_meas(i+j);
+            count=count+1;
+            end
         end
     end
 end
@@ -137,7 +155,6 @@ endfunction
 //with input x,k,N_x,w and tau
 //and output supp_x
 function supp_x=DGS_approx_prune(x,k,N_x,w,tau)
-    z=0;
     for i=1:n
         sum_nx=0;
         for t=1:tau
@@ -145,10 +162,14 @@ function supp_x=DGS_approx_prune(x,k,N_x,w,tau)
             N_x_temp=N_x(i,t)^2;
             sum_nx=sum_nx+(w_temp*N_x_temp);
         end
+        //disp('sum_nx')
+        //disp(sum_nx)
         z(i)=(x(i)^2)+sum_nx;
     end
     [z_sorted,index]=gsort(abs(z),'g','d');
     supp_x=index(1:k);
+    //disp('supp_x')
+    //disp(supp_x)
 endfunction
 
 //function to make a vector k-sparse
@@ -183,7 +204,7 @@ function x_hat=AdaDGS_recovery(phi,y,k)
         //estimating x by LS
         b=estimate(phi,y,merged_supp); //estimate of x
         //prune to obtain next estmate
-        x_hat_vec=make_sparse(b);
+        x_hat_vec=make_sparse(b,k);
         x_hat_temp=[x_hat_temp x_hat_vec];
         //update current samples
         y_r=y-(phi*x_hat_vec);
