@@ -1,19 +1,19 @@
 //Implmenting CoSaMP
 //1D case
 //This code deals with all real values
-
-clear;
+//abort;
+clear
 //Defining constants
-//n=512; //size of data
-//k=64; //sparsity
+n=512; //size of data
+k=64; //sparsity
 //q=4; //no of clusters
-n=64; //size of data
-k=8; //sparsity
+//n=64; //size of data
+//k=8; //sparsity
 //k=3;
-q=2; //no of clusters
-//m=3*k; //no of measurements
+q=4; //no of clusters
+//m=6*k; //no of measurements
 fac=ceil(log(n/k));
-m=(fac+2)*k; //no of measurements
+m=(fac+1)*k; //no of measurements
 sigma=0.01; //measurement noise
 tau=2; //no of neighbours
 k_min=1;
@@ -38,8 +38,9 @@ end
 
 //Generating measurements
 x_meas=zeros(n,1); //initializing the 1D data
-x_meas(2:9)=1;
-x_meas(50:58)=1;
+//x_meas(2:66)=1;
+//x_meas(2:33)=1;
+//x_meas(50:81)=-1;
 //x(2)=1
 //x(34)=4;
 //x(50)=-1;
@@ -48,22 +49,26 @@ x_meas(50:58)=1;
 //x(30)=4;
 //x(25)=-1;
 //x(40)=5;
-//loc_count=k/q; //no of locations where we place clusters
-//disp(loc_count)
+loc_count=q; //no of locations where we place clusters
+disp(loc_count)
 //locations=tau+1+pmodulo(ceil(rand(loc_count,1)*1000),(n-2*tau)); //generating locations to cluster
-//disp(locations)
-////Populating chosen locations with +-1 generated randomly
-//for i=1:size(locations,1)
-//    loc_temp=locations(i);
-//    for j=(loc_temp-tau):(loc_temp+tau)
-//        if rand(1)>0.5 then
-//            x_meas(j)=1;
-//        else
-//            x_meas(j)=-1;
-//        end
-//    end
-//end
-
+locations=pmodulo(ceil(rand(loc_count,1)*1000),(n)); //generating locations to cluster
+disp(locations)
+//Populating chosen locations with +-1 generated randomly
+for i=1:size(locations,1)
+    loc_temp=locations(i);
+    if loc_temp>=(n-(k/q)) then
+        loc_temp=loc_temp-(k/q)+1;
+    end
+    for j=(loc_temp):(loc_temp+(k/q)-1)
+        if rand(1)>0.5 then
+            x_meas(j)=1;
+        else
+            x_meas(j)=-1;
+        end
+    end
+end
+//plot(x_meas)
 //x_sorted=gsort(x,'g','d');
 //Generating measurement noise
 v=rand(m,1,'normal')*sigma; //gaussian noise having zero mean and sd=sigma
@@ -143,9 +148,10 @@ function x_hat=CoSaMP(phi,y,k)
     x_hat_vec=zeros(phi_col,1); //to store estimate of recovered signal in each iteration
     x_hat_temp=[x_hat_vec]; //storing the x_hat_vec
     y_r=y;  //to store residue
-    flag=1; //to keep track of halting criterion
+    difference=10;
+    //flag=1; //to keep track of halting criterion
     i=1; //index
-    while flag==1
+    while abs(difference)>epsilon
         i=i+1;
         //merging support sets
         x_temp=phi'*y_r;
@@ -160,20 +166,21 @@ function x_hat=CoSaMP(phi,y,k)
         //update current samples
         y_r=y-(phi*x_hat_vec);
         //check halting criterion
-        difference=(abs(x_hat_temp(:,i)-x_hat_temp(:,i-1)));
+        difference=max(abs(x_hat_temp(:,i)-x_hat_temp(:,i-1)));
         //difference=abs(x_hat_temp(:,i)-x_meas);
-        //disp(difference)
+        disp(difference)
         disp(i)
-        if difference<epsilon then
-            flag=0;
-        end
+        //if difference<epsilon then
+        //    flag=0;
+        //end
         x_hat=x_hat_temp(:,i);
     end
-    x_hat=x_hat_temp(:,i);
+    //x_hat=x_hat_temp(:,i);
 endfunction
 
 x_hat=CoSaMP(phi,y,k);
-//plot(x_hat(:,$),'r')
-//plot(x)
+//plot(x_hat,'r')
+//plot(x_meas)
 n_vec=1:n;
 plot2d3(n_vec,[x_meas x_hat])
+figure,plot(x_meas-x_hat)
