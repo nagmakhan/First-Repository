@@ -8,11 +8,14 @@ k=64; //sparsity
 q=4; //no of clusters
 m=3*k; //no of measurements
 sigma=0.01; //measurement noise
-tau=2; //no of neighbours
+//tau=2; //no of neighbours
+tau=0;
 k_min=1;
 k_max=n/3; //range of k
 steps=50; //steps to increase k
 del_k=(k_max-k_min)/steps; //step size for increasing k
+w_init=0.5; //weights for neighbours
+
 //Generating phi
 phi=rand(m,n,'normal');
 
@@ -51,6 +54,56 @@ y=(phi*x)+v;
 
 //plot(phi*x);
 //plot(y,'r');
+function x_row=row(x)
+    if size(x,2)~=1 then
+        x=x';
+    end
+    x_row=x;    
+endfunction
+
+//function to find support 
+function supp=find_support(x,k)
+    [x_temp,index]=gsort(row(abs(x)),'g','d');
+    supp=index(1:k); //selecting k largest elements
+    //supp=gsort(supp,'g','i'); //sorting the indices
+    supp=row(supp);
+endfunction
+
+//find non-zero components
+function supp=support(x)
+    x=row(x);
+    supp=zeros(size(x,1));
+    supp=find(abs(x)>0.01); //finding non-zero elements
+endfunction
+
+//to get phi_T
+function phi_T=return_phi_T(phi,T)
+    T=row(T); //make T a row vector
+    row_T=size(T,1); //no fo rows in T
+    phi_T=phi(:,T);
+endfunction
+
+//function to merge sets
+function merged_supp=merge_support(supp1,supp2)
+    if supp1(1)~=0 & supp2(1)~=0 then
+        merged_supp_temp=[row(supp1);row(supp2)];
+    elseif supp1(1)==0 then
+        merged_supp_temp=[row(supp2)];
+    elseif supp2(1)==0 then
+        merged_supp_temp=[row(supp1)];
+    else
+        disp('Merged support set is empty!')
+    end
+    merged_supp=row(unique(merged_supp_temp));
+endfunction
+
+//estimating
+function x=estimate(phi,y,T)
+    [r,c]=size(phi);
+    x=zeros(c,1);
+    phi_T=return_phi_T(phi);
+    x(T)=phi_T\y;
+endfunction
 
 //DGS approximation pruning algorihtm
 //with input x,k,N_x,w and tau
@@ -66,20 +119,63 @@ function supp_x=DGS_approx_prune(x,k,N_x,w,tau)
         end
         z(i)=(x(i)^2)+sum_nx;
     end
-    z_sorted=gsort(z,'g','i');
-    supp_x=z_sorted(1:k);
+    [z_sorted,index]=gsort(z,'g','i');
+    supp_x=index(1:k);
+endfunction
+
+//function to make a vector k-sparse
+function x_sparse=make_sparse(x,k)
+	index=DGS_approx_prune(x,k,N_x,w,tau);
+    x_sparse=zeros(row_x,1);
+    x_sparse(index)=x(index);
 endfunction
 
 //AdaDGS recovery algorithm
 //input is phi,y,k_min,k_max,del_k
 //output is x_hat
-function x_hat=AdaDGS_recovery(phi,y,k_min,k_max,del_k)
-    //initialization
-    y_r=y; //y_residue
-    k=k_min;
-    supp_x=zeros(k); //support of x
-    x_hat=0; 
+function x_hat=AdaDGS_recovery(phi,y,k)
+    //initiliazation
+    [phi_row,phi_col]=size(phi); //size of x
+    x_hat_vec=zeros(phi_col,1); //to store estimate of recovered signal in each iteration
+    x_hat_temp=[x_hat_vec]; //storing the x_hat_vec
+    y_r=y;  //to store residue
+    difference=10;
+    //flag=1; //to keep track of halting criterion
+    i=1; //index
+    w=w_init*ones(n,tau);
+    while difference<epsilon
+        i=i+1;
+        //merging support sets
+        x_temp=phi'*y_r;
+        //DGS approx pruning of residue
+        supp_xtemp=DGS_approx_prune(x_temp,k,N_x,w,tau);
+        //supp_xtemp=find_support(x_temp,2*k);
+        supp_x_hat=support(x_hat_vec);
+        merged_supp=merge_support(supp_xtemp,supp_x_hat);
+        //estimating x by LS
+        b=estimate(phi,y,merged_supp); //estimate of x
+        //prune to obtain next estmate
+        x_hat_vec=make_sparse(b);
+        x_hat_temp=[x_hat_temp x_hat_vec];
+        //update current samples
+        y_r=y-(phi*x_hat_vec);
+        //check halting criterion
+        difference=(abs(x_hat_temp(:,i)-x_hat_temp(:,i-1)));
+        //difference=abs(x_hat_temp(:,i)-x_meas);
+        //disp(difference)
+        disp(i)
+        //if difference<epsilon then
+        //    flag=0;
+        /end
+        x_hat=x_hat_temp(:,i);
+    end
+    x_hat=x_hat_temp(:,i);
     
     
 endfunction
     
+x_hat=AdaDGS_recovery(phi,y,k);
+//plot(x_hat(:,$),'r')
+//plot(x)
+n_vec=1:n;
+plot2d3(n_vec,[x_meas x_hat])
